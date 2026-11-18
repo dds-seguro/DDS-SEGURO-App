@@ -19,7 +19,6 @@
       overflow: hidden; background: #0b1f3a;
       overscroll-behavior: none;
     }
-    /* Recorta qualquer barra superior nativa do Google Apps Script dentro do PWA */
     .frame-wrap {
       position: fixed;
       inset: 0;
@@ -81,13 +80,17 @@
   const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwFZ4AIkXNPZ-CUOe8i-RzrY17hC-WvIQZ6htOTbXd9jc84bawDbe1sF8WFsky-74as_w/exec";
   const ONESIGNAL_APP_ID = "3da15322-a3bf-419d-b2dc-b1f3f916e97b";
 
-  // Garante o registro do Service Worker imediatamente no celular
+  // Calcula o caminho relativo para o Service Worker no GitHub Pages (/DDS-SEGURO-App/)
+  const BASE_PATH = window.location.pathname.replace(/\/[^\/]*$/, "/");
+  const SW_PATH = BASE_PATH + "OneSignalSDKWorker.js";
+
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./OneSignalSDKWorker.js").catch(() => {});
+    navigator.serviceWorker.register(SW_PATH, { scope: BASE_PATH }).catch(() => {});
   }
 
+  const frameEl = document.getElementById("appFrame");
   const params = window.location.search || "?modo=colab";
-  document.getElementById("appFrame").src = APPS_SCRIPT_URL + params;
+  frameEl.src = APPS_SCRIPT_URL + params;
 
   let oneSignalInstancia = null;
   let ultimoColab = null;
@@ -121,17 +124,17 @@
     deferredPrompt = null;
   }
 
-  // Sincroniza ID Push do celular com a planilha
+  // 2. Sincroniza ID Push do dispositivo com a planilha
   function sincronizarPushComPlanilha() {
     if (!oneSignalInstancia || !ultimoColab) return;
     const subId = oneSignalInstancia.User?.PushSubscription?.id;
-    if (subId) {
+    if (subId && frameEl.contentWindow) {
       oneSignalInstancia.User.addTags({
         matricula: String(ultimoColab.matricula || ""),
         empresa_id: String(ultimoColab.empresa_id || "todas"),
         cliente_id: String(ultimoColab.cliente_id || "todos")
       });
-      document.getElementById("appFrame").contentWindow.postMessage({
+      frameEl.contentWindow.postMessage({
         tipo: "SALVAR_PUSH_ID",
         matricula: ultimoColab.matricula,
         pushId: subId
@@ -139,7 +142,23 @@
     }
   }
 
-  // 2. Inicialização do OneSignal v16 otimizada para Mobile
+  frameEl.addEventListener("load", () => {
+    setTimeout(() => {
+      sincronizarPushComPlanilha();
+      if (frameEl.contentWindow) {
+        frameEl.contentWindow.postMessage({
+          tipo: "STATUS_PWA",
+          instalado: isStandalone
+        }, "*");
+      }
+    }, 1500);
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) sincronizarPushComPlanilha();
+  });
+
+  // 3. Inicialização do OneSignal v16 para GitHub Pages + Mobile
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   OneSignalDeferred.push(async function(OneSignal) {
     try {
@@ -147,7 +166,8 @@
         appId: ONESIGNAL_APP_ID,
         notifyButton: { enable: false },
         allowLocalhostAsSecureOrigin: true,
-        serviceWorkerPath: "OneSignalSDKWorker.js"
+        serviceWorkerPath: SW_PATH,
+        serviceWorkerParam: { scope: BASE_PATH }
       });
       oneSignalInstancia = OneSignal;
 
@@ -173,22 +193,25 @@
     }
   });
 
+  // 4. Comunicação com o iframe (Colaborador.html)
   window.addEventListener("message", (ev) => {
-    if (ev.data && ev.data.tipo === "VINCULAR_PUSH") {
+    if (!ev.data) return;
+    if (ev.data.tipo === "VINCULAR_PUSH") {
       ultimoColab = ev.data;
       sincronizarPushComPlanilha();
-      // Informa ao iframe se já está rodando como app instalado
-      document.getElementById("appFrame").contentWindow.postMessage({
-        tipo: "STATUS_PWA",
-        instalado: isStandalone
-      }, "*");
+      if (frameEl.contentWindow) {
+        frameEl.contentWindow.postMessage({
+          tipo: "STATUS_PWA",
+          instalado: isStandalone
+        }, "*");
+      }
     }
-    if (ev.data && ev.data.tipo === "DISPARAR_INSTALACAO_PWA" && deferredPrompt) {
+    if (ev.data.tipo === "DISPARAR_INSTALACAO_PWA" && deferredPrompt) {
       instalarApp();
     }
   });
 
-  // 3. Clique no botão "Ativar" (Compatível com Android Chrome, Samsung Internet e iOS PWA)
+  // 5. Clique no botão "Ativar"
   async function ativarNotificacoes() {
     const btn = document.getElementById("btnPush");
     const txt = document.getElementById("pushTxt");
@@ -215,18 +238,17 @@
         sincronizarPushComPlanilha();
 
         if (oneSignalInstancia.Notifications.permission) {
-          txt.innerHTML = "✅ <b>Alertas ativados neste celular!</b>";
+          txt.innerHTML = "✅ <b>Alertas ativados neste dispositivo!</b>";
           btn.style.display = "none";
           setTimeout(() => { document.getElementById("pushBar").style.display = "none"; }, 2200);
           return;
         }
       }
 
-      // Fallback direto pela API nativa do navegador mobile
       if ("Notification" in window) {
         const res = await Notification.requestPermission();
         if (res === "granted") {
-          txt.innerHTML = "✅ <b>Alertas ativados neste celular!</b>";
+          txt.innerHTML = "✅ <b>Alertas ativados neste dispositivo!</b>";
           btn.style.display = "none";
           setTimeout(() => { document.getElementById("pushBar").style.display = "none"; }, 2200);
           return;
@@ -238,7 +260,7 @@
     } catch (e) {
       btn.disabled = false;
       btn.textContent = "Ativar";
-      txt.innerHTML = '⚠️ Não foi possível ativar. Verifique se as notificações do navegador estão ativas no Android/iOS.';
+      txt.innerHTML = '⚠️ Não foi possível ativar. Verifique as permissões de notificação do navegador.';
     }
   }
 </script>
