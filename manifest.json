@@ -4,31 +4,23 @@
   "name": "DDS SEGURO",
   "short_name": "DDS SEGURO",
   "description": "DDS, Treinamentos, Vídeos e Comunicados de Segurança · SESMT",
-  "start_url": "./index.html?modo=colab&source=pwa",
+  "start_url": "./index.html?modo=colab",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
-  "background_color": "#0b1f3a",
-  "theme_color": "#0b1f3a",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "orientation": "portrait",
-  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "https://lh3.googleusercontent.com/d/1d9nw2TIx9GHswd2eFbuPp9BaQdS0WTsG",
+      "src": "https://lh3.googleusercontent.com/d/1b4CVOUP_qTrJKeuIxGlMfynjLYDIcp76",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
-      "src": "https://lh3.googleusercontent.com/d/1d9nw2TIx9GHswd2eFbuPp9BaQdS0WTsG",
+      "src": "https://lh3.googleusercontent.com/d/1b4CVOUP_qTrJKeuIxGlMfynjLYDIcp76",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "https://lh3.googleusercontent.com/d/1d9nw2TIx9GHswd2eFbuPp9BaQdS0WTsG",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
   ]
 }
