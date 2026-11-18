@@ -177,6 +177,14 @@
     if (ev.data && ev.data.tipo === "VINCULAR_PUSH") {
       ultimoColab = ev.data;
       sincronizarPushComPlanilha();
+      // Informa ao iframe se já está rodando como app instalado
+      document.getElementById("appFrame").contentWindow.postMessage({
+        tipo: "STATUS_PWA",
+        instalado: isStandalone
+      }, "*");
+    }
+    if (ev.data && ev.data.tipo === "DISPARAR_INSTALACAO_PWA" && deferredPrompt) {
+      instalarApp();
     }
   });
 
