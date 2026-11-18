@@ -3,319 +3,285 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#0b1f3a">
+  <meta name="theme-color" content="#000000">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="DDS SEGURO">
   <title>DDS SEGURO</title>
   <link rel="manifest" href="./manifest.json">
-  <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1d9nw2TIx9GHswd2eFbuPp9BaQdS0WTsG">
-  <link rel="apple-touch-icon" href="https://lh3.googleusercontent.com/d/1d9nw2TIx9GHswd2eFbuPp9BaQdS0WTsG">
+  <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1b4CVOUP_qTrJKeuIxGlMfynjLYDIcp76">
+  <link rel="apple-touch-icon" href="https://lh3.googleusercontent.com/d/1b4CVOUP_qTrJKeuIxGlMfynjLYDIcp76">
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <style>
     html, body {
       margin: 0; padding: 0; width: 100%; height: 100%;
-      overflow: hidden; background: #0b1f3a;
-      overscroll-behavior: none;
+      overflow: hidden; background: #000; overscroll-behavior: none;
     }
-    .frame-wrap {
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #f4f6fa;
-    }
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: 0;
-      display: block;
-    }
+    .frame-wrap { position: fixed; inset: 0; width: 100%; height: 100%; overflow: hidden; background: #fff; }
+    iframe { width: 100%; height: 100%; border: 0; display: block; }
     .floating-bar {
       position: fixed; left: 50%; transform: translateX(-50%); z-index: 99999;
-      background: #0b1f3a; color: #fff; border: 1px solid rgba(255,255,255,.32);
+      background: #000; color: #fff; border: 2px solid #FACC15;
       border-radius: 14px; padding: 12px 14px; display: none; align-items: center; gap: 10px;
       box-shadow: 0 12px 32px rgba(0,0,0,.5); font-family: system-ui, -apple-system, sans-serif; font-size: 13px;
       width: 92vw; max-width: 440px; justify-content: space-between;
     }
     #pushBar { top: calc(12px + env(safe-area-inset-top, 0px)); }
-    #installBar { bottom: calc(74px + env(safe-area-inset-bottom, 0px)); background: #1e3a8a; border-color: #60a5fa; }
+    #installBar { bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
     .floating-bar button.acao {
-      background: #10b981; color: #fff; border: 0; border-radius: 9px; padding: 9px 14px;
-      font-weight: 700; cursor: pointer; white-space: nowrap; font-size: 13px; flex-shrink: 0;
+      background: #FACC15; color: #000; border: 0; border-radius: 9px; padding: 9px 14px;
+      font-weight: 800; cursor: pointer; white-space: nowrap; font-size: 13px; flex-shrink: 0;
     }
-    .floating-bar button.acao:disabled { opacity: 0.6; }
+    .floating-bar button.acao:disabled { opacity: .6; }
     .floating-bar button.fechar {
-      background: transparent; color: rgba(255,255,255,.75); border: 0; font-size: 17px; cursor: pointer; padding: 2px 6px;
+      background: transparent; color: #fff; opacity: .75; border: 0; font-size: 17px; cursor: pointer; padding: 2px 6px;
     }
   </style>
 </head>
 <body>
 
-<!-- Barra de Ativação de Notificações Push (só aparece se ainda NÃO estiver ativado) -->
 <div class="floating-bar" id="pushBar">
   <span id="pushTxt">🔔 Ative os alertas do <b>DDS SEGURO</b> para receber DDS e avisos!</span>
   <div style="display:flex;align-items:center;gap:4px">
     <button class="acao" id="btnPush" onclick="ativarNotificacoes()">Ativar</button>
-    <button class="fechar" onclick="fecharBarra('push')">✕</button>
+    <button class="fechar" onclick="dispensar('pushBar','dds_push_dispensado')">✕</button>
   </div>
 </div>
 
-<!-- Barra de Instalação do Aplicativo (PWA) — nunca aparece dentro do app instalado -->
 <div class="floating-bar" id="installBar">
   <span id="installTxt">📲 Instale o app <b>DDS SEGURO</b> no seu celular!</span>
   <div style="display:flex;align-items:center;gap:4px">
     <button class="acao" id="btnInstall" onclick="instalarApp()">Instalar</button>
-    <button class="fechar" onclick="fecharBarra('install')">✕</button>
+    <button class="fechar" onclick="dispensar('installBar','dds_install_dispensado')">✕</button>
   </div>
 </div>
 
 <div class="frame-wrap">
-  <iframe id="appFrame"
-    allow="notifications; clipboard-write; fullscreen; autoplay; picture-in-picture; encrypted-media"
-    allowfullscreen
-    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-modals allow-downloads"></iframe>
+  <iframe id="appFrame" allow="notifications; clipboard-write; fullscreen; autoplay"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
 </div>
 
 <script>
   const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwFZ4AIkXNPZ-CUOe8i-RzrY17hC-WvIQZ6htOTbXd9jc84bawDbe1sF8WFsky-74as_w/exec";
   const ONESIGNAL_APP_ID = "3da15322-a3bf-419d-b2dc-b1f3f916e97b";
-
-  const $ = (id) => document.getElementById(id);
-  const hoje = () => new Date().toISOString().slice(0, 10);
-
-  // Calcula o caminho relativo para o Service Worker no GitHub Pages (/DDS-SEGURO-App/)
   const BASE_PATH = window.location.pathname.replace(/\/[^\/]*$/, "/");
   const SW_PATH = BASE_PATH + "OneSignalSDKWorker.js";
+  const DIAS_ADIAR = 3;
+
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+  const pushBar = document.getElementById("pushBar");
+  const pushTxt = document.getElementById("pushTxt");
+  const btnPush = document.getElementById("btnPush");
+  const installBar = document.getElementById("installBar");
+  const installTxt = document.getElementById("installTxt");
+  const btnInstall = document.getElementById("btnInstall");
+  const frameEl = document.getElementById("appFrame");
+
+  let oneSignal = null;
+  let ultimoColab = null;
+  let deferredPrompt = null;
+
+  frameEl.src = APPS_SCRIPT_URL + (window.location.search || "?modo=colab");
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register(SW_PATH, { scope: BASE_PATH }).catch(() => {});
   }
 
-  /* ---------- Detecção do modo "app instalado" (robusta) ---------- */
-  const qs = new URLSearchParams(window.location.search);
-  if (qs.get("source") === "pwa") { try { sessionStorage.setItem("dds_modo_app", "1"); } catch (e) {} }
-
-  const mq = (q) => !!(window.matchMedia && window.matchMedia(q).matches);
-  function estaNoAppInstalado() {
-    let sessao = false;
-    try { sessao = sessionStorage.getItem("dds_modo_app") === "1"; } catch (e) {}
-    return (
-      mq("(display-mode: standalone)") ||
-      mq("(display-mode: fullscreen)") ||
-      mq("(display-mode: minimal-ui)") ||
-      mq("(display-mode: window-controls-overlay)") ||
-      window.navigator.standalone === true ||
-      (document.referrer || "").indexOf("android-app://") === 0 ||
-      sessao
-    );
-  }
-  let isStandalone = estaNoAppInstalado();
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-
-  /* ---------- Fechar barras (lembra por 3 dias) ---------- */
-  function fecharBarra(qual) {
-    $(qual === "push" ? "pushBar" : "installBar").style.display = "none";
-    try { localStorage.setItem("dds_barra_" + qual, String(Date.now())); } catch (e) {}
-  }
-  function barraFechada(qual) {
+  /* ---------- Dispensas com validade (não voltam a cada abertura) ---------- */
+  function dispensadoRecente(chave) {
     try {
-      const t = Number(localStorage.getItem("dds_barra_" + qual) || 0);
-      return t && Date.now() - t < 3 * 24 * 3600 * 1000;
+      const t = Number(localStorage.getItem(chave) || 0);
+      return t > 0 && Date.now() - t < DIAS_ADIAR * 86400000;
+    } catch (e) { return false; }
+  }
+  function dispensar(id, chave) {
+    try { localStorage.setItem(chave, String(Date.now())); } catch (e) {}
+    document.getElementById(id).style.display = "none";
+  }
+
+  /* ---------- Notificações ---------- */
+  function permissaoNavegador() {
+    return "Notification" in window ? Notification.permission : "unsupported";
+  }
+
+  function assinaturaAtiva() {
+    if (!oneSignal) return permissaoNavegador() === "granted";
+    try {
+      return !!(oneSignal.Notifications.permission && oneSignal.User.PushSubscription.optedIn);
     } catch (e) { return false; }
   }
 
-  /* ---------- Iframe do sistema ---------- */
-  const frameEl = $("appFrame");
-  qs.delete("source");
-  const resto = qs.toString();
-  frameEl.src = APPS_SCRIPT_URL + (resto ? "?" + resto : "?modo=colab");
-
-  let oneSignalInstancia = null;
-  let ultimoColab = null;
-  let deferredPrompt = null;
-
-  function avisarStatusPwa() {
-    isStandalone = estaNoAppInstalado();
-    if (frameEl.contentWindow) {
-      frameEl.contentWindow.postMessage({ tipo: "STATUS_PWA", instalado: isStandalone }, "*");
-    }
-  }
-
-  /* ---------- 1. Instalação PWA ---------- */
-  function avaliarBarraInstalar() {
-    const bar = $("installBar");
-    isStandalone = estaNoAppInstalado();
-    // Dentro do app instalado: nunca mostra
-    if (isStandalone || barraFechada("install")) { bar.style.display = "none"; return; }
-    if (isIOS) {
-      $("installTxt").innerHTML = '📲 No iPhone: toque em <b>Compartilhar</b> e <b>Adicionar à Tela de Início</b>.';
-      $("btnInstall").style.display = "none";
-      bar.style.display = "flex";
+  function atualizarBarraPush() {
+    if (assinaturaAtiva()) { pushBar.style.display = "none"; return; }
+    if (isIOS && !isStandalone) { pushBar.style.display = "none"; return; }
+    if (permissaoNavegador() === "denied") {
+      pushTxt.innerHTML = '⚠️ Notificações bloqueadas. Toque no <b>cadeado</b> ao lado do endereço e libere <b>Notificações</b>.';
+      btnPush.style.display = "none";
+      pushBar.style.display = "flex";
       return;
     }
-    // Android/desktop: só aparece se o navegador realmente oferecer a instalação
-    bar.style.display = deferredPrompt ? "flex" : "none";
+    if (dispensadoRecente("dds_push_dispensado")) { pushBar.style.display = "none"; return; }
+    pushTxt.innerHTML = '🔔 Ative os alertas do <b>DDS SEGURO</b> para receber DDS e avisos!';
+    btnPush.style.display = "";
+    btnPush.disabled = false;
+    btnPush.textContent = "Ativar";
+    pushBar.style.display = "flex";
   }
 
-  window.addEventListener("beforeinstallprompt", (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    avaliarBarraInstalar();
-  });
-  window.addEventListener("appinstalled", () => {
-    deferredPrompt = null;
-    $("installBar").style.display = "none";
-    avisarStatusPwa();
-  });
-  try {
-    window.matchMedia("(display-mode: standalone)").addEventListener("change", () => { avaliarBarraInstalar(); avaliarBarraPush(); avisarStatusPwa(); });
-  } catch (e) {}
-
-  async function instalarApp() {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === "accepted") $("installBar").style.display = "none";
-    deferredPrompt = null;
-  }
-
-  /* ---------- 2. Notificações: só mostra o aviso se AINDA não estiver ativo ---------- */
-  function avaliarBarraPush() {
-    const bar = $("pushBar");
-    const suportado = "Notification" in window;
-    const perm = suportado ? Notification.permission : "default";
-
-    if (perm === "granted") {
-      // Já autorizado neste dispositivo: nunca mais mostra o aviso
-      bar.style.display = "none";
-      try {
-        const sub = oneSignalInstancia && oneSignalInstancia.User && oneSignalInstancia.User.PushSubscription;
-        if (sub && sub.optedIn === false) sub.optIn().catch(() => {});   // reativa em silêncio
-      } catch (e) {}
-      sincronizarPushComPlanilha();
-      return;
+  // Se o navegador já tem permissão, ativa a inscrição neste app sem pedir de novo.
+  async function garantirOptInSePermitido() {
+    if (!oneSignal || assinaturaAtiva()) return;
+    if (permissaoNavegador() === "granted") {
+      try { await oneSignal.User.PushSubscription.optIn(); } catch (e) {}
     }
-    if (!suportado || perm === "denied") { bar.style.display = "none"; return; }
-    if (isIOS && !estaNoAppInstalado()) { bar.style.display = "none"; return; }
-    if (!oneSignalInstancia || barraFechada("push")) { bar.style.display = "none"; return; }
-    bar.style.display = "flex";
   }
 
-  /* ---------- 3. Sincroniza ID Push do dispositivo com a planilha ---------- */
   function sincronizarPushComPlanilha() {
-    if (!oneSignalInstancia || !ultimoColab) return;
-    const subId = oneSignalInstancia.User?.PushSubscription?.id;
-    if (subId && frameEl.contentWindow) {
-      oneSignalInstancia.User.addTags({
+    if (!oneSignal || !ultimoColab || !frameEl.contentWindow) return;
+    let subId = null;
+    try { subId = oneSignal.User.PushSubscription.id; } catch (e) {}
+    if (!subId) return;
+    try {
+      oneSignal.User.addTags({
         matricula: String(ultimoColab.matricula || ""),
         empresa_id: String(ultimoColab.empresa_id || "todas"),
         cliente_id: String(ultimoColab.cliente_id || "todos")
       });
-      frameEl.contentWindow.postMessage({
-        tipo: "SALVAR_PUSH_ID",
-        matricula: ultimoColab.matricula,
-        pushId: subId
-      }, "*");
-    }
+    } catch (e) {}
+    frameEl.contentWindow.postMessage({
+      tipo: "SALVAR_PUSH_ID",
+      matricula: ultimoColab.matricula,
+      pushId: subId
+    }, "*");
   }
 
-  frameEl.addEventListener("load", () => {
-    setTimeout(() => { sincronizarPushComPlanilha(); avisarStatusPwa(); }, 1500);
-  });
+  async function ativarNotificacoes() {
+    if (isIOS && !isStandalone) {
+      pushTxt.innerHTML = '📲 Instale o app primeiro: toque em <b>Compartilhar → Adicionar à Tela de Início</b>.';
+      btnPush.style.display = "none";
+      return;
+    }
+    if (permissaoNavegador() === "denied") { atualizarBarraPush(); return; }
 
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) { avaliarBarraPush(); avaliarBarraInstalar(); sincronizarPushComPlanilha(); }
-  });
-
-  /* ---------- 4. OneSignal v16 (GitHub Pages + Mobile) ---------- */
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  OneSignalDeferred.push(async function (OneSignal) {
+    btnPush.disabled = true;
+    btnPush.textContent = "Aguarde...";
     try {
-      await OneSignal.init({
+      if (oneSignal) {
+        await oneSignal.Notifications.requestPermission();
+        await oneSignal.User.PushSubscription.optIn();
+      } else if ("Notification" in window) {
+        await Notification.requestPermission();
+      }
+    } catch (e) {}
+
+    sincronizarPushComPlanilha();
+
+    if (assinaturaAtiva()) {
+      pushTxt.innerHTML = "✅ <b>Alertas ativados neste dispositivo!</b>";
+      btnPush.style.display = "none";
+      pushBar.style.display = "flex";
+      setTimeout(() => { pushBar.style.display = "none"; }, 2200);
+      return;
+    }
+    btnPush.disabled = false;
+    btnPush.textContent = "Ativar";
+    pushTxt.innerHTML = '⚠️ Não foi possível ativar. Verifique as permissões de notificação do navegador.';
+  }
+
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async function (OS) {
+    try {
+      await OS.init({
         appId: ONESIGNAL_APP_ID,
         notifyButton: { enable: false },
         allowLocalhostAsSecureOrigin: true,
         serviceWorkerPath: SW_PATH,
         serviceWorkerParam: { scope: BASE_PATH }
       });
-      oneSignalInstancia = OneSignal;
-
-      try { OneSignal.Notifications.addEventListener("permissionChange", () => avaliarBarraPush()); } catch (e) {}
-      OneSignal.User.PushSubscription.addEventListener("change", () => {
-        avaliarBarraPush();
+      oneSignal = OS;
+      OS.User.PushSubscription.addEventListener("change", () => {
+        atualizarBarraPush();
         sincronizarPushComPlanilha();
       });
-
-      avaliarBarraPush();
-      setTimeout(avaliarBarraPush, 2000);   // reavalia depois que a assinatura termina de carregar
+      await garantirOptInSePermitido();
     } catch (err) {
       console.error("OneSignal init:", err);
-      avaliarBarraPush();
+    }
+    atualizarBarraPush();
+    sincronizarPushComPlanilha();
+  });
+
+  // Se o SDK não responder, mostra a barra mesmo assim (com a regra de dispensa).
+  setTimeout(() => { if (!oneSignal) atualizarBarraPush(); }, 6000);
+
+  /* ---------- Instalação (PWA) ---------- */
+  function atualizarBarraInstalacao() {
+    if (isStandalone) { installBar.style.display = "none"; return; }
+    if (isIOS && !dispensadoRecente("dds_install_dispensado")) {
+      installTxt.innerHTML = '📲 No iPhone: toque em <b>Compartilhar</b> e depois em <b>Adicionar à Tela de Início</b>.';
+      btnInstall.style.display = "none";
+      installBar.style.display = "flex";
+    }
+  }
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (!isStandalone && !dispensadoRecente("dds_install_dispensado")) {
+      btnInstall.style.display = "";
+      installTxt.innerHTML = '📲 Instale o app <b>DDS SEGURO</b> no seu celular!';
+      installBar.style.display = "flex";
     }
   });
 
-  avaliarBarraInstalar();
+  window.addEventListener("appinstalled", () => {
+    installBar.style.display = "none";
+    deferredPrompt = null;
+  });
 
-  /* ---------- 5. Comunicação com o iframe (Colaborador.html) ---------- */
+  async function instalarApp() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") installBar.style.display = "none";
+    deferredPrompt = null;
+  }
+
+  atualizarBarraInstalacao();
+
+  /* ---------- Comunicação com o iframe (Colaborador) ---------- */
+  frameEl.addEventListener("load", () => {
+    setTimeout(() => {
+      sincronizarPushComPlanilha();
+      if (frameEl.contentWindow) {
+        frameEl.contentWindow.postMessage({ tipo: "STATUS_PWA", instalado: isStandalone }, "*");
+      }
+    }, 1500);
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      atualizarBarraPush();
+      sincronizarPushComPlanilha();
+    }
+  });
+
   window.addEventListener("message", (ev) => {
-    if (!ev.data || ev.source !== frameEl.contentWindow) return;
-    if (ev.data.tipo === "APP_PRONTO") avisarStatusPwa();
+    if (!ev.data) return;
     if (ev.data.tipo === "VINCULAR_PUSH") {
       ultimoColab = ev.data;
       sincronizarPushComPlanilha();
-      avisarStatusPwa();
+      if (frameEl.contentWindow) {
+        frameEl.contentWindow.postMessage({ tipo: "STATUS_PWA", instalado: isStandalone }, "*");
+      }
     }
-    if (ev.data.tipo === "DISPARAR_INSTALACAO_PWA" && deferredPrompt) instalarApp();
+    if (ev.data.tipo === "DISPARAR_INSTALACAO_PWA" && deferredPrompt) {
+      instalarApp();
+    }
   });
-
-  /* ---------- 6. Clique no botão "Ativar" ---------- */
-  async function ativarNotificacoes() {
-    const btn = $("btnPush");
-    const txt = $("pushTxt");
-
-    if (isIOS && !estaNoAppInstalado()) {
-      txt.innerHTML = '📲 Instale o app primeiro: toque em <b>Compartilhar → Adicionar à Tela de Início</b>.';
-      btn.style.display = "none";
-      return;
-    }
-
-    if ("Notification" in window && Notification.permission === "denied") {
-      txt.innerHTML = '⚠️ Bloqueado no celular: toque nos <b>3 pontinhos / cadeado</b> acima e libere <b>Notificações</b>.';
-      btn.style.display = "none";
-      return;
-    }
-
-    btn.disabled = true;
-    btn.textContent = "Aguarde...";
-
-    try {
-      if (oneSignalInstancia) {
-        await oneSignalInstancia.Notifications.requestPermission();
-        await oneSignalInstancia.User.PushSubscription.optIn();
-        sincronizarPushComPlanilha();
-      } else if ("Notification" in window) {
-        await Notification.requestPermission();
-      }
-
-      if ("Notification" in window && Notification.permission === "granted") {
-        txt.innerHTML = "✅ <b>Alertas ativados neste dispositivo!</b>";
-        btn.style.display = "none";
-        setTimeout(() => { $("pushBar").style.display = "none"; }, 2200);
-        return;
-      }
-
-      btn.disabled = false;
-      btn.textContent = "Ativar";
-      avaliarBarraPush();
-    } catch (e) {
-      btn.disabled = false;
-      btn.textContent = "Ativar";
-      txt.innerHTML = '⚠️ Não foi possível ativar. Verifique as permissões de notificação do navegador.';
-    }
-  }
 </script>
 </body>
 </html>
