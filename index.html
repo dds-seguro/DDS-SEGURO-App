@@ -4,53 +4,110 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b1f3a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="DDS SEGURO">
   <title>DDS SEGURO</title>
   <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/png" href="https://wsrv.nl/?url=drive.google.com/uc?id=1ul3JgqyauWvgRW-F0gT0D4ang4HA4kOY&output=png&w=192">
+  <link rel="apple-touch-icon" href="https://wsrv.nl/?url=drive.google.com/uc?id=1ul3JgqyauWvgRW-F0gT0D4ang4HA4kOY&output=png&w=192">
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <style>
     html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #0b1f3a; }
     iframe { width: 100%; height: 100%; border: 0; display: block; }
-    .push-bar {
-      position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 9999;
-      background: #0b1f3a; color: #fff; border: 1px solid rgba(255,255,255,.25);
-      border-radius: 14px; padding: 10px 14px; display: none; align-items: center; gap: 10px;
-      box-shadow: 0 10px 28px rgba(0,0,0,.35); font-family: system-ui, sans-serif; font-size: 13.5px;
-      max-width: 92vw;
+    .floating-bar {
+      position: fixed; left: 50%; transform: translateX(-50%); z-index: 9999;
+      background: #0b1f3a; color: #fff; border: 1px solid rgba(255,255,255,.28);
+      border-radius: 14px; padding: 11px 14px; display: none; align-items: center; gap: 10px;
+      box-shadow: 0 12px 30px rgba(0,0,0,.45); font-family: system-ui, -apple-system, sans-serif; font-size: 13px;
+      width: 93vw; max-width: 450px; justify-content: space-between;
     }
-    .push-bar button {
-      background: #10b981; color: #fff; border: 0; border-radius: 9px; padding: 7px 12px;
-      font-weight: 700; cursor: pointer; white-space: nowrap;
+    #pushBar { top: 14px; }
+    #installBar { bottom: 72px; background: #1e3a8a; border-color: #60a5fa; }
+    .floating-bar button.acao {
+      background: #10b981; color: #fff; border: 0; border-radius: 9px; padding: 8px 13px;
+      font-weight: 700; cursor: pointer; white-space: nowrap; font-size: 12.5px;
+    }
+    .floating-bar button.fechar {
+      background: transparent; color: rgba(255,255,255,.75); border: 0; font-size: 16px; cursor: pointer; padding: 2px 6px;
     }
   </style>
 </head>
 <body>
 
-<div class="push-bar" id="pushBar">
-  <span>🔔 Ative os alertas do <b>DDS SEGURO</b> para receber novos DDS e avisos!</span>
-  <button onclick="ativarNotificacoes()">Ativar</button>
+<!-- Barra de Ativação de Notificações Push -->
+<div class="floating-bar" id="pushBar">
+  <span>🔔 Ative os alertas do <b>DDS SEGURO</b> para receber DDS e avisos!</span>
+  <div style="display:flex;align-items:center;gap:4px">
+    <button class="acao" onclick="ativarNotificacoes()">Ativar</button>
+    <button class="fechar" onclick="document.getElementById('pushBar').style.display='none'">✕</button>
+  </div>
 </div>
 
-<iframe id="appFrame"></iframe>
+<!-- Barra de Instalação do Aplicativo (PWA) -->
+<div class="floating-bar" id="installBar">
+  <span id="installTxt">📲 Instale o app <b>DDS SEGURO</b> na tela inicial do seu celular!</span>
+  <div style="display:flex;align-items:center;gap:4px">
+    <button class="acao" id="btnInstall" onclick="instalarApp()">Instalar</button>
+    <button class="fechar" onclick="document.getElementById('installBar').style.display='none'">✕</button>
+  </div>
+</div>
+
+<iframe id="appFrame" allow="notifications"></iframe>
 
 <script>
-  // URL do seu Google Apps Script
   const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwFZ4AIkXNPZ-CUOe8i-RzrY17hC-WvIQZ6htOTbXd9jc84bawDbe1sF8WFsky-74as_w/exec";
-
-  // App ID do OneSignal
   const ONESIGNAL_APP_ID = "3da15322-a3bf-419d-b2dc-b1f3f916e97b";
 
   const params = window.location.search || "?modo=colab";
   document.getElementById("appFrame").src = APPS_SCRIPT_URL + params;
 
+  // 1. Controle de Instalação PWA (Android/Chrome + Safari iOS)
+  let deferredPrompt = null;
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (!isStandalone) {
+      document.getElementById("installBar").style.display = "flex";
+    }
+  });
+
+  if (isIOS && !isStandalone) {
+    document.getElementById("installTxt").innerHTML = '📲 Para instalar no iPhone: toque em <b>Compartilhar</b> e <b>Adicionar à Tela de Início</b>.';
+    document.getElementById("btnInstall").style.display = "none";
+    document.getElementById("installBar").style.display = "flex";
+  }
+
+  async function instalarApp() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") {
+      document.getElementById("installBar").style.display = "none";
+    }
+    deferredPrompt = null;
+  }
+
+  // 2. Controle de Notificações Push (OneSignal v16)
+  if ("Notification" in window && Notification.permission !== "granted") {
+    document.getElementById("pushBar").style.display = "flex";
+  }
+
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   OneSignalDeferred.push(async function(OneSignal) {
     await OneSignal.init({
       appId: ONESIGNAL_APP_ID,
-      notifyButton: { enable: false }
+      notifyButton: { enable: false },
+      serviceWorkerPath: "OneSignalSDKWorker.js"
     });
 
     if (!OneSignal.Notifications.permission) {
       document.getElementById("pushBar").style.display = "flex";
+    } else {
+      document.getElementById("pushBar").style.display = "none";
     }
 
     window.addEventListener("message", async (ev) => {
