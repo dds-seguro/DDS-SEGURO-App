@@ -1,6 +1,8 @@
 {
-  "name": "DDS SEGURO",
-  "short_name": "DDS SEGURO",
+  "id": "./",
+  "scope": "./",
+  "name": "Portal SESMT",
+  "short_name": "Portal SESMT",
   "description": "DDS, Treinamentos, Vídeos e Comunicados de Segurança · SESMT",
   "start_url": "./index.html?modo=colab",
   "display": "standalone",
