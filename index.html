@@ -10,8 +10,8 @@
   <meta name="apple-mobile-web-app-title" content="DDS SEGURO">
   <title>DDS SEGURO</title>
   <link rel="manifest" href="./manifest.json">
-  <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1eBKPb3cKjF58HLjCHlHKgACshz4QUnxi">
-  <link rel="apple-touch-icon" href="https://lh3.googleusercontent.com/d/1eBKPb3cKjF58HLjCHlHKgACshz4QUnxi">
+  <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1b4CVOUP_qTrJKeuIxGlMfynjLYDIcp76">
+  <link rel="apple-touch-icon" href="https://lh3.googleusercontent.com/d/1b4CVOUP_qTrJKeuIxGlMfynjLYDIcp76">
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <style>
     html, body {
@@ -86,12 +86,20 @@
   }
 
   const frameEl = document.getElementById("appFrame");
-  const params = window.location.search || "?modo=colab";
+  const rawSearch = window.location.search;
+  const params = rawSearch
+    ? (rawSearch.includes("modo=") || rawSearch.includes("dds=") || rawSearch.includes("aba=") ? rawSearch : rawSearch + "&modo=colab")
+    : "?modo=colab";
   frameEl.src = APPS_SCRIPT_URL + params;
 
   let oneSignalInstancia = null;
   let ultimoColab = null;
   let deferredPrompt = null;
+
+  try {
+    const salvo = localStorage.getItem("dds_pwa_colab");
+    if (salvo) ultimoColab = JSON.parse(salvo);
+  } catch (e) {}
 
   const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -121,7 +129,7 @@
   }
 
   function sincronizarPushComPlanilha() {
-    if (!oneSignalInstancia || !ultimoColab) return;
+    if (!oneSignalInstancia || !ultimoColab || !ultimoColab.matricula) return;
     const subId = oneSignalInstancia.User?.PushSubscription?.id;
     if (subId) {
       oneSignalInstancia.User.addTags({
@@ -136,6 +144,7 @@
           pushId: subId
         }, "*");
       } catch (e) {}
+      fetch(APPS_SCRIPT_URL + "?action=vincularPush&mat=" + encodeURIComponent(ultimoColab.matricula) + "&pid=" + encodeURIComponent(subId), { mode: "no-cors" }).catch(() => {});
     }
   }
 
@@ -181,6 +190,7 @@
     if (!ev.data) return;
     if (ev.data.tipo === "VINCULAR_PUSH") {
       ultimoColab = ev.data;
+      try { localStorage.setItem("dds_pwa_colab", JSON.stringify(ev.data)); } catch (e) {}
       sincronizarPushComPlanilha();
     }
     if (ev.data.tipo === "DISPARAR_INSTALACAO_PWA" && deferredPrompt) {
