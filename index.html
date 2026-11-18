@@ -2,8 +2,9 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0b1f3a">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Portal SESMT">
@@ -13,24 +14,42 @@
   <link rel="apple-touch-icon" href="https://lh3.googleusercontent.com/d/1eBKPb3cKjF58HLjCHlHKgACshz4QUnxi">
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <style>
-    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #0b1f3a; }
-    iframe { width: 100%; height: 100%; border: 0; display: block; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      overflow: hidden; background: #0b1f3a;
+      overscroll-behavior: none;
+    }
+    /* Recorta qualquer barra superior nativa do Google Apps Script dentro do PWA */
+    .frame-wrap {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #f4f6fa;
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      display: block;
+    }
     .floating-bar {
-      position: fixed; left: 50%; transform: translateX(-50%); z-index: 9999;
-      background: #0b1f3a; color: #fff; border: 1px solid rgba(255,255,255,.28);
-      border-radius: 14px; padding: 11px 14px; display: none; align-items: center; gap: 10px;
-      box-shadow: 0 12px 30px rgba(0,0,0,.45); font-family: system-ui, -apple-system, sans-serif; font-size: 13px;
-      width: 93vw; max-width: 460px; justify-content: space-between;
+      position: fixed; left: 50%; transform: translateX(-50%); z-index: 99999;
+      background: #0b1f3a; color: #fff; border: 1px solid rgba(255,255,255,.32);
+      border-radius: 14px; padding: 12px 14px; display: none; align-items: center; gap: 10px;
+      box-shadow: 0 12px 32px rgba(0,0,0,.5); font-family: system-ui, -apple-system, sans-serif; font-size: 13px;
+      width: 92vw; max-width: 440px; justify-content: space-between;
     }
-    #pushBar { top: 14px; }
-    #installBar { bottom: 72px; background: #1e3a8a; border-color: #60a5fa; }
+    #pushBar { top: calc(12px + env(safe-area-inset-top, 0px)); }
+    #installBar { bottom: calc(74px + env(safe-area-inset-bottom, 0px)); background: #1e3a8a; border-color: #60a5fa; }
     .floating-bar button.acao {
-      background: #10b981; color: #fff; border: 0; border-radius: 9px; padding: 8px 14px;
-      font-weight: 700; cursor: pointer; white-space: nowrap; font-size: 12.5px;
+      background: #10b981; color: #fff; border: 0; border-radius: 9px; padding: 9px 14px;
+      font-weight: 700; cursor: pointer; white-space: nowrap; font-size: 13px; flex-shrink: 0;
     }
-    .floating-bar button.acao:disabled { opacity: 0.6; cursor: wait; }
+    .floating-bar button.acao:disabled { opacity: 0.6; }
     .floating-bar button.fechar {
-      background: transparent; color: rgba(255,255,255,.75); border: 0; font-size: 16px; cursor: pointer; padding: 2px 6px;
+      background: transparent; color: rgba(255,255,255,.75); border: 0; font-size: 17px; cursor: pointer; padding: 2px 6px;
     }
   </style>
 </head>
@@ -47,30 +66,37 @@
 
 <!-- Barra de Instalação do Aplicativo (PWA) -->
 <div class="floating-bar" id="installBar">
-  <span id="installTxt">📲 Instale o app <b>Portal SESMT</b> na tela inicial do seu celular!</span>
+  <span id="installTxt">📲 Instale o app <b>Portal SESMT</b> no seu celular!</span>
   <div style="display:flex;align-items:center;gap:4px">
     <button class="acao" id="btnInstall" onclick="instalarApp()">Instalar</button>
     <button class="fechar" onclick="document.getElementById('installBar').style.display='none'">✕</button>
   </div>
 </div>
 
-<iframe id="appFrame" allow="notifications"></iframe>
+<div class="frame-wrap">
+  <iframe id="appFrame" allow="notifications; clipboard-write" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
+</div>
 
 <script>
   const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwFZ4AIkXNPZ-CUOe8i-RzrY17hC-WvIQZ6htOTbXd9jc84bawDbe1sF8WFsky-74as_w/exec";
   const ONESIGNAL_APP_ID = "3da15322-a3bf-419d-b2dc-b1f3f916e97b";
+
+  // Garante o registro do Service Worker imediatamente no celular
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./OneSignalSDKWorker.js").catch(() => {});
+  }
 
   const params = window.location.search || "?modo=colab";
   document.getElementById("appFrame").src = APPS_SCRIPT_URL + params;
 
   let oneSignalInstancia = null;
   let ultimoColab = null;
-
-  // 1. Controle de Instalação PWA (Android/Chrome + Safari iOS)
   let deferredPrompt = null;
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
+  // 1. Controle de Instalação PWA
   window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
     deferredPrompt = e;
@@ -80,7 +106,7 @@
   });
 
   if (isIOS && !isStandalone) {
-    document.getElementById("installTxt").innerHTML = '📲 No iPhone: toque em <b>Compartilhar</b> e <b>Adicionar à Tela de Início</b> para instalar e receber alertas.';
+    document.getElementById("installTxt").innerHTML = '📲 No iPhone: toque em <b>Compartilhar</b> e <b>Adicionar à Tela de Início</b>.';
     document.getElementById("btnInstall").style.display = "none";
     document.getElementById("installBar").style.display = "flex";
   }
@@ -95,22 +121,10 @@
     deferredPrompt = null;
   }
 
-  // 2. Exibição inicial da barra de notificações
-  if (!("Notification" in window)) {
-    if (isIOS && !isStandalone) {
-      document.getElementById("pushBar").style.display = "none";
-    }
-  } else if (Notification.permission !== "granted") {
-    document.getElementById("pushBar").style.display = "flex";
-  }
-
-  // Função para sincronizar o ID de Push com a planilha
+  // Sincroniza ID Push do celular com a planilha
   function sincronizarPushComPlanilha() {
     if (!oneSignalInstancia || !ultimoColab) return;
-    const subId = oneSignalInstancia.User && oneSignalInstancia.User.PushSubscription
-      ? oneSignalInstancia.User.PushSubscription.id
-      : null;
-
+    const subId = oneSignalInstancia.User?.PushSubscription?.id;
     if (subId) {
       oneSignalInstancia.User.addTags({
         matricula: String(ultimoColab.matricula || ""),
@@ -125,33 +139,40 @@
     }
   }
 
-  // 3. Inicialização do OneSignal v16
+  // 2. Inicialização do OneSignal v16 otimizada para Mobile
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   OneSignalDeferred.push(async function(OneSignal) {
     try {
       await OneSignal.init({
         appId: ONESIGNAL_APP_ID,
         notifyButton: { enable: false },
+        allowLocalhostAsSecureOrigin: true,
         serviceWorkerPath: "OneSignalSDKWorker.js"
       });
       oneSignalInstancia = OneSignal;
 
-      if (OneSignal.Notifications.permission) {
+      const jaAtivo = OneSignal.Notifications.permission === true && OneSignal.User.PushSubscription.optedIn;
+      if (jaAtivo) {
         document.getElementById("pushBar").style.display = "none";
         sincronizarPushComPlanilha();
-      } else {
+      } else if (!(isIOS && !isStandalone)) {
         document.getElementById("pushBar").style.display = "flex";
       }
 
-      OneSignal.User.PushSubscription.addEventListener("change", () => {
-        sincronizarPushComPlanilha();
+      OneSignal.User.PushSubscription.addEventListener("change", (ev) => {
+        if (ev.current && ev.current.optedIn) {
+          document.getElementById("pushBar").style.display = "none";
+          sincronizarPushComPlanilha();
+        }
       });
     } catch (err) {
-      console.error("Erro ao iniciar OneSignal:", err);
+      console.error("OneSignal init:", err);
+      if (!(isIOS && !isStandalone)) {
+        document.getElementById("pushBar").style.display = "flex";
+      }
     }
   });
 
-  // Recebe os dados do colaborador logado no iframe
   window.addEventListener("message", (ev) => {
     if (ev.data && ev.data.tipo === "VINCULAR_PUSH") {
       ultimoColab = ev.data;
@@ -159,48 +180,57 @@
     }
   });
 
-  // 4. Ação direta do botão "Ativar"
+  // 3. Clique no botão "Ativar" (Compatível com Android Chrome, Samsung Internet e iOS PWA)
   async function ativarNotificacoes() {
     const btn = document.getElementById("btnPush");
     const txt = document.getElementById("pushTxt");
 
-    if (!("Notification" in window)) {
-      alert("Para ativar alertas no iPhone, toque no botão Compartilhar do Safari e escolha 'Adicionar à Tela de Início'.");
+    if (isIOS && !isStandalone) {
+      txt.innerHTML = '📲 Instale o app primeiro: toque em <b>Compartilhar → Adicionar à Tela de Início</b>.';
+      btn.style.display = "none";
       return;
     }
 
-    if (Notification.permission === "denied") {
-      txt.innerHTML = '⚠️ As notificações estão bloqueadas no navegador. Toque no <b>cadeado na barra de endereço</b> e permita Notificações.';
+    if ("Notification" in window && Notification.permission === "denied") {
+      txt.innerHTML = '⚠️ Bloqueado no celular: toque nos <b>3 pontinhos / cadeado</b> acima e libere <b>Notificações</b>.';
       btn.style.display = "none";
       return;
     }
 
     btn.disabled = true;
-    btn.textContent = "Ativando...";
+    btn.textContent = "Aguarde...";
 
     try {
-      // Pede permissão nativa imediatamente dentro do clique do usuário
-      const permissao = await Notification.requestPermission();
+      if (oneSignalInstancia) {
+        await oneSignalInstancia.Notifications.requestPermission();
+        await oneSignalInstancia.User.PushSubscription.optIn();
+        sincronizarPushComPlanilha();
 
-      if (permissao === "granted") {
-        if (oneSignalInstancia) {
-          await oneSignalInstancia.User.PushSubscription.optIn();
-          sincronizarPushComPlanilha();
+        if (oneSignalInstancia.Notifications.permission) {
+          txt.innerHTML = "✅ <b>Alertas ativados neste celular!</b>";
+          btn.style.display = "none";
+          setTimeout(() => { document.getElementById("pushBar").style.display = "none"; }, 2200);
+          return;
         }
-        txt.innerHTML = "✅ <b>Alertas ativados com sucesso!</b>";
-        btn.style.display = "none";
-        setTimeout(() => { document.getElementById("pushBar").style.display = "none"; }, 2500);
-      } else if (permissao === "denied") {
-        txt.innerHTML = '⚠️ Você bloqueou os alertas. Libere nas configurações do site no navegador para receber avisos.';
-        btn.style.display = "none";
-      } else {
-        btn.disabled = false;
-        btn.textContent = "Ativar";
       }
+
+      // Fallback direto pela API nativa do navegador mobile
+      if ("Notification" in window) {
+        const res = await Notification.requestPermission();
+        if (res === "granted") {
+          txt.innerHTML = "✅ <b>Alertas ativados neste celular!</b>";
+          btn.style.display = "none";
+          setTimeout(() => { document.getElementById("pushBar").style.display = "none"; }, 2200);
+          return;
+        }
+      }
+
+      btn.disabled = false;
+      btn.textContent = "Ativar";
     } catch (e) {
       btn.disabled = false;
       btn.textContent = "Ativar";
-      alert("Não foi possível ativar: " + e.message);
+      txt.innerHTML = '⚠️ Não foi possível ativar. Verifique se as notificações do navegador estão ativas no Android/iOS.';
     }
   }
 </script>
