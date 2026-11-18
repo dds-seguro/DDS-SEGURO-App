@@ -6,8 +6,8 @@
   "description": "DDS, Treinamentos, Vídeos e Comunicados de Segurança · SESMT",
   "start_url": "./index.html?modo=colab",
   "display": "standalone",
-  "background_color": "#0b1f3a",
-  "theme_color": "#0b1f3a",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
   "orientation": "portrait",
   "icons": [
     {
