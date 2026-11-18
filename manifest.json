@@ -2,21 +2,23 @@
   "name": "DDS SEGURO",
   "short_name": "DDS SEGURO",
   "description": "DDS, Treinamentos, Vídeos e Comunicados de Segurança · SESMT",
-  "start_url": "./index.html",
+  "start_url": "./index.html?modo=colab",
   "display": "standalone",
   "background_color": "#0b1f3a",
   "theme_color": "#0b1f3a",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "https://wsrv.nl/?url=seguro.srv.br/wp-content/uploads/2022/01/SEGURO2.webp&output=png&w=192&h=192&fit=contain&bg=0b1f3a",
+      "src": "https://wsrv.nl/?url=drive.google.com/uc?id=1ul3JgqyauWvgRW-F0gT0D4ang4HA4kOY&output=png&w=192&h=192&fit=contain",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "https://wsrv.nl/?url=seguro.srv.br/wp-content/uploads/2022/01/SEGURO2.webp&output=png&w=512&h=512&fit=contain&bg=0b1f3a",
+      "src": "https://wsrv.nl/?url=drive.google.com/uc?id=1ul3JgqyauWvgRW-F0gT0D4ang4HA4kOY&output=png&w=512&h=512&fit=contain",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
