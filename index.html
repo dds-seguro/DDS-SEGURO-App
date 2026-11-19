@@ -227,6 +227,14 @@
   function marcarPushOk() {
     try { localStorage.setItem("dds_push_ok", "1"); localStorage.removeItem("dds_push_snooze"); } catch (e) {}
   }
+  // A permissão do navegador é a fonte da verdade: se já estiver liberada, o aviso não aparece
+  function aplicarEstadoPush() {
+    if (estadoPermissao() !== "granted") return false;
+    marcarPushOk();
+    document.getElementById("pushBar").style.display = "none";
+    return true;
+  }
+
   function fecharBarraPush() {
     document.getElementById("pushBar").style.display = "none";
     silenciarBarra(3);
@@ -359,19 +367,18 @@
   }
 
   async function revalidarPush() {
-    if (!oneSignalInstancia) return;
-    try {
-      const perm = ("Notification" in window) ? Notification.permission : "default";
-      if (perm === "granted") {
-        if (!oneSignalInstancia.User.PushSubscription.optedIn) {
+    // Antes, uma falha no optIn impedia de esconder o aviso e de sincronizar. Agora cada passo é independente.
+    if (estadoPermissao() === "granted") {
+      aplicarEstadoPush();
+      try {
+        if (oneSignalInstancia && !oneSignalInstancia.User.PushSubscription.optedIn) {
           await oneSignalInstancia.User.PushSubscription.optIn();
         }
-        document.getElementById("pushBar").style.display = "none";
-        sincronizarPushComPlanilha();
-      } else if (perm === "denied") {
-        mostrarBloqueado();
-      }
-    } catch (e) {}
+      } catch (e) {}
+      sincronizarPushComPlanilha();
+    } else if (estadoPermissao() === "denied" && oneSignalInstancia) {
+      mostrarBloqueado();
+    }
   }
 
   document.addEventListener("visibilitychange", () => {
@@ -391,14 +398,13 @@
       });
       oneSignalInstancia = OneSignal;
 
-      const jaAtivo = OneSignal.Notifications.permission === true && OneSignal.User.PushSubscription.optedIn;
-      if (jaAtivo) {
-        marcarPushOk();
-        document.getElementById("pushBar").style.display = "none";
+      if (aplicarEstadoPush()) {
+        // Já liberado no navegador: garante a inscrição e sincroniza, sem mostrar o aviso
+        try {
+          if (!OneSignal.User.PushSubscription.optedIn) await OneSignal.User.PushSubscription.optIn();
+        } catch (e) {}
         sincronizarPushComPlanilha();
-      } else if ("Notification" in window && Notification.permission === "granted") {
-        revalidarPush();
-      } else if ("Notification" in window && Notification.permission === "denied" && !(isIOS && !isStandalone)) {
+      } else if (estadoPermissao() === "denied" && !(isIOS && !isStandalone)) {
         mostrarBloqueado();
       } else if (!(isIOS && !isStandalone) && !barraSilenciada()) {
         document.getElementById("pushBar").style.display = "flex";
@@ -412,6 +418,7 @@
       });
     } catch (err) {
       console.error("OneSignal init:", err);
+      if (aplicarEstadoPush()) return;
       if (!(isIOS && !isStandalone)) {
         document.getElementById("pushBar").style.display = "flex";
       }
@@ -453,11 +460,11 @@
       if (oneSignalInstancia) {
         await oneSignalInstancia.Notifications.requestPermission();
         if ("Notification" in window && Notification.permission === "denied") { mostrarBloqueado(); abrirAjudaNotificacoes(); return; }
-        await oneSignalInstancia.User.PushSubscription.optIn();
+        try { await oneSignalInstancia.User.PushSubscription.optIn(); } catch (e) {}
         tentativasSync = 0;
         sincronizarPushComPlanilha();
 
-        if (oneSignalInstancia.Notifications.permission) {
+        if (estadoPermissao() === "granted" || oneSignalInstancia.Notifications.permission) {
           txt.innerHTML = "✅ <b>Alertas ativados neste dispositivo!</b>";
           btn.style.display = "none";
           setTimeout(() => { document.getElementById("pushBar").style.display = "none"; }, 2200);
