@@ -47,6 +47,27 @@
       font-weight: 800; cursor: pointer; white-space: nowrap; font-size: 13px; flex-shrink: 0;
     }
     .floating-bar button.acao:disabled { opacity: 0.6; }
+    .ajuda-bg {
+      position: fixed; inset: 0; z-index: 100000; background: rgba(0,0,0,.72);
+      display: none; align-items: flex-end; justify-content: center;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .ajuda-bg.on { display: flex; }
+    .ajuda {
+      background: #fff; color: #111; width: 100%; max-width: 480px; max-height: 92vh; overflow: auto;
+      border-radius: 20px 20px 0 0; padding: 20px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+    }
+    .ajuda h2 { margin: 0 0 4px; font-size: 18px; }
+    .ajuda p.sub { margin: 0 0 12px; color: #52525b; font-size: 13.5px; line-height: 1.5; }
+    .ajuda ol { margin: 0 0 14px; padding-left: 20px; font-size: 14.5px; line-height: 1.7; }
+    .ajuda .estado { font-size: 13px; font-weight: 700; padding: 8px 10px; border-radius: 10px; background: #fef3c7; color: #92400e; margin-bottom: 12px; }
+    .ajuda .estado.ok { background: #dcfce7; color: #166534; }
+    .ajuda button {
+      width: 100%; border: 0; border-radius: 12px; padding: 13px; font-size: 14.5px; font-weight: 800;
+      cursor: pointer; margin-top: 8px;
+    }
+    .ajuda .b-main { background: #FACC15; color: #000; }
+    .ajuda .b-sec { background: #f4f4f5; color: #111; }
     .floating-bar button.fechar {
       background: transparent; color: rgba(255,255,255,.75); border: 0; font-size: 17px; cursor: pointer; padding: 2px 6px;
     }
@@ -67,6 +88,18 @@
   <div style="display:flex;align-items:center;gap:4px">
     <button class="acao" id="btnInstall" onclick="instalarApp()">Instalar</button>
     <button class="fechar" onclick="document.getElementById('installBar').style.display='none'">✕</button>
+  </div>
+</div>
+
+<div class="ajuda-bg" id="ajudaBg">
+  <div class="ajuda">
+    <h2>🔔 Liberar notificações</h2>
+    <p class="sub" id="ajudaSub"></p>
+    <div class="estado" id="ajudaEstado"></div>
+    <ol id="ajudaPassos"></ol>
+    <button class="b-main" id="btnAbrirConfig" onclick="tentarAbrirConfig()">Tentar abrir as configurações</button>
+    <button class="b-main" onclick="verificarLiberacao()">Já liberei · verificar</button>
+    <button class="b-sec" onclick="fecharAjuda()">Fechar</button>
   </div>
 </div>
 
@@ -160,11 +193,108 @@
   function mostrarBloqueado() {
     const txt = document.getElementById("pushTxt");
     const btn = document.getElementById("btnPush");
-    txt.innerHTML = '⚠️ Notificações bloqueadas. Abra <b>Configurações do celular → Apps → DDS SEGURO → Notificações</b> e ative (no navegador: cadeado → <b>Permissões → Notificações → Permitir</b>).';
+    txt.innerHTML = '⚠️ As notificações estão <b>bloqueadas</b> neste aparelho.';
     btn.style.display = "";
     btn.disabled = false;
-    btn.textContent = "Já liberei";
+    btn.textContent = "Como liberar";
     document.getElementById("pushBar").style.display = "flex";
+  }
+
+  const isAndroid = /Android/i.test(navigator.userAgent);
+
+  function estadoPermissao() {
+    return ("Notification" in window) ? Notification.permission : "unsupported";
+  }
+
+  function abrirAjudaNotificacoes() {
+    const sub = document.getElementById("ajudaSub");
+    const passos = document.getElementById("ajudaPassos");
+    const btnCfg = document.getElementById("btnAbrirConfig");
+    let lista;
+    if (isStandalone && isAndroid) {
+      sub.textContent = "O app instalado precisa de permissão nas configurações do Android.";
+      lista = [
+        "Segure o dedo no ícone do <b>DDS SEGURO</b> na tela inicial e toque em <b>Informações do app</b> (ícone ⓘ).",
+        "Toque em <b>Notificações</b>.",
+        "Ative <b>Permitir notificações</b>.",
+        "Volte aqui e toque em <b>Já liberei · verificar</b>."
+      ];
+    } else if (isAndroid) {
+      sub.textContent = "O navegador guardou a permissão como bloqueada. É preciso liberar manualmente.";
+      lista = [
+        "Toque no <b>cadeado</b> (ou nos <b>3 pontinhos ⋮</b> → <b>Informações do site</b>) na barra de endereço.",
+        "Toque em <b>Permissões</b> → <b>Notificações</b>.",
+        "Escolha <b>Permitir</b>.",
+        "Volte aqui e toque em <b>Já liberei · verificar</b>."
+      ];
+    } else if (isIOS) {
+      sub.textContent = "No iPhone, as notificações só funcionam com o app instalado na Tela de Início.";
+      lista = [
+        "Abra <b>Ajustes</b> do iPhone → <b>Notificações</b>.",
+        "Procure <b>DDS SEGURO</b> e ative <b>Permitir Notificações</b>.",
+        "Volte ao app e toque em <b>Já liberei · verificar</b>."
+      ];
+    } else {
+      sub.textContent = "O navegador está bloqueando as notificações deste site.";
+      lista = [
+        "Clique no <b>cadeado</b> ao lado do endereço do site.",
+        "Em <b>Notificações</b>, escolha <b>Permitir</b>.",
+        "Volte aqui e toque em <b>Já liberei · verificar</b>."
+      ];
+    }
+    passos.innerHTML = lista.map(function(p) { return "<li>" + p + "</li>"; }).join("");
+    btnCfg.style.display = isAndroid ? "" : "none";
+    const est = document.getElementById("ajudaEstado");
+    est.className = "estado";
+    est.textContent = "Situação atual: " + (estadoPermissao() === "denied" ? "bloqueado" : estadoPermissao() === "granted" ? "liberado" : "não definido");
+    document.getElementById("ajudaBg").classList.add("on");
+  }
+
+  function fecharAjuda() {
+    document.getElementById("ajudaBg").classList.remove("on");
+  }
+
+  // Sites não podem abrir as configurações do Android diretamente; esta tentativa
+  // funciona só em alguns aparelhos. Se a página continuar visível, mostramos o passo a passo.
+  function tentarAbrirConfig() {
+    const est = document.getElementById("ajudaEstado");
+    const pkg = "com.android.chrome";
+    const url = "intent://settings#Intent;action=android.settings.APP_NOTIFICATION_SETTINGS;" +
+                "S.android.provider.extra.APP_PACKAGE=" + pkg + ";end";
+    try { window.location.href = url; } catch (e) {}
+    setTimeout(function() {
+      if (!document.hidden) {
+        est.className = "estado";
+        est.textContent = "Seu celular não permitiu abrir direto. Siga os passos acima.";
+      }
+    }, 1600);
+  }
+
+  async function verificarLiberacao() {
+    const est = document.getElementById("ajudaEstado");
+    const perm = estadoPermissao();
+    if (perm === "granted") {
+      try {
+        if (oneSignalInstancia && !oneSignalInstancia.User.PushSubscription.optedIn) {
+          await oneSignalInstancia.User.PushSubscription.optIn();
+        }
+      } catch (e) {}
+      tentativasSync = 0;
+      sincronizarPushComPlanilha();
+      est.className = "estado ok";
+      est.textContent = "✅ Notificações liberadas neste aparelho!";
+      document.getElementById("pushBar").style.display = "none";
+      setTimeout(fecharAjuda, 1400);
+      return;
+    }
+    if (perm === "denied") {
+      est.className = "estado";
+      est.innerHTML = "Ainda aparece como bloqueado. Depois de liberar, <b>feche totalmente o app e abra de novo</b>. Recarregando em 3 segundos…";
+      setTimeout(function() { window.location.reload(); }, 3000);
+      return;
+    }
+    est.className = "estado";
+    est.textContent = "Permissão ainda não definida. Feche e toque em Ativar novamente.";
   }
 
   async function revalidarPush() {
@@ -250,6 +380,7 @@
 
     if ("Notification" in window && Notification.permission === "denied") {
       mostrarBloqueado();
+      abrirAjudaNotificacoes();
       return;
     }
 
@@ -259,7 +390,7 @@
     try {
       if (oneSignalInstancia) {
         await oneSignalInstancia.Notifications.requestPermission();
-        if ("Notification" in window && Notification.permission === "denied") { mostrarBloqueado(); return; }
+        if ("Notification" in window && Notification.permission === "denied") { mostrarBloqueado(); abrirAjudaNotificacoes(); return; }
         await oneSignalInstancia.User.PushSubscription.optIn();
         tentativasSync = 0;
         sincronizarPushComPlanilha();
