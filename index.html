@@ -128,29 +128,65 @@
     deferredPrompt = null;
   }
 
+  let tentativasSync = 0;
   function sincronizarPushComPlanilha() {
     if (!oneSignalInstancia || !ultimoColab || !ultimoColab.matricula) return;
     const subId = oneSignalInstancia.User?.PushSubscription?.id;
-    if (subId) {
+    if (!subId) {
+      // O ID do aparelho pode demorar alguns segundos para existir logo após ativar
+      if (tentativasSync < 8) { tentativasSync++; setTimeout(sincronizarPushComPlanilha, 1500); }
+      return;
+    }
+    tentativasSync = 0;
+    try { oneSignalInstancia.login(String(ultimoColab.matricula)); } catch (e) {}
+    try {
       oneSignalInstancia.User.addTags({
         matricula: String(ultimoColab.matricula || ""),
         empresa_id: String(ultimoColab.empresa_id || "todas"),
         cliente_id: String(ultimoColab.cliente_id || "todos")
       });
-      try {
-        frameEl.contentWindow?.postMessage({
-          tipo: "SALVAR_PUSH_ID",
-          matricula: ultimoColab.matricula,
-          pushId: subId
-        }, "*");
-      } catch (e) {}
-      fetch(APPS_SCRIPT_URL + "?action=vincularPush&mat=" + encodeURIComponent(ultimoColab.matricula) + "&pid=" + encodeURIComponent(subId), { mode: "no-cors" }).catch(() => {});
-    }
+    } catch (e) {}
+    // Caminho principal: grava o ID do aparelho na planilha direto pelo servidor
+    fetch(APPS_SCRIPT_URL + "?action=vincularPush&mat=" + encodeURIComponent(ultimoColab.matricula) + "&pid=" + encodeURIComponent(subId), { mode: "no-cors" }).catch(() => {});
+    try {
+      frameEl.contentWindow?.postMessage({
+        tipo: "SALVAR_PUSH_ID",
+        matricula: ultimoColab.matricula,
+        pushId: subId
+      }, "*");
+    } catch (e) {}
+  }
+
+  function mostrarBloqueado() {
+    const txt = document.getElementById("pushTxt");
+    const btn = document.getElementById("btnPush");
+    txt.innerHTML = '⚠️ Notificações bloqueadas. Abra <b>Configurações do celular → Apps → DDS SEGURO → Notificações</b> e ative (no navegador: cadeado → <b>Permissões → Notificações → Permitir</b>).';
+    btn.style.display = "";
+    btn.disabled = false;
+    btn.textContent = "Já liberei";
+    document.getElementById("pushBar").style.display = "flex";
+  }
+
+  async function revalidarPush() {
+    if (!oneSignalInstancia) return;
+    try {
+      const perm = ("Notification" in window) ? Notification.permission : "default";
+      if (perm === "granted") {
+        if (!oneSignalInstancia.User.PushSubscription.optedIn) {
+          await oneSignalInstancia.User.PushSubscription.optIn();
+        }
+        document.getElementById("pushBar").style.display = "none";
+        sincronizarPushComPlanilha();
+      } else if (perm === "denied") {
+        mostrarBloqueado();
+      }
+    } catch (e) {}
   }
 
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) sincronizarPushComPlanilha();
+    if (!document.hidden) { revalidarPush(); sincronizarPushComPlanilha(); }
   });
+  window.addEventListener("focus", () => { revalidarPush(); });
 
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   OneSignalDeferred.push(async function(OneSignal) {
@@ -168,6 +204,10 @@
       if (jaAtivo) {
         document.getElementById("pushBar").style.display = "none";
         sincronizarPushComPlanilha();
+      } else if ("Notification" in window && Notification.permission === "granted") {
+        revalidarPush();
+      } else if ("Notification" in window && Notification.permission === "denied" && !(isIOS && !isStandalone)) {
+        mostrarBloqueado();
       } else if (!(isIOS && !isStandalone)) {
         document.getElementById("pushBar").style.display = "flex";
       }
@@ -209,8 +249,7 @@
     }
 
     if ("Notification" in window && Notification.permission === "denied") {
-      txt.innerHTML = '⚠️ Bloqueado no celular: toque nos <b>3 pontinhos / cadeado</b> acima e libere <b>Notificações</b>.';
-      btn.style.display = "none";
+      mostrarBloqueado();
       return;
     }
 
@@ -220,7 +259,9 @@
     try {
       if (oneSignalInstancia) {
         await oneSignalInstancia.Notifications.requestPermission();
+        if ("Notification" in window && Notification.permission === "denied") { mostrarBloqueado(); return; }
         await oneSignalInstancia.User.PushSubscription.optIn();
+        tentativasSync = 0;
         sincronizarPushComPlanilha();
 
         if (oneSignalInstancia.Notifications.permission) {
